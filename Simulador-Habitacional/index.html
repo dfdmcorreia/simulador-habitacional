@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Habitacional Simplificado</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header>
+        <h1>Simulador Habitacional</h1>
+    </header>
+
+    <main>
+        <section class="input-section">
+            <h2>Dados para Simulação</h2>
+
+            <div class="input-group">
+                <label for="valorImovel">Valor do Imóvel (R$):</label>
+                <div class="input-with-button">
+                    <input type="number" id="valorImovel" min="0" step="1000" value="300000">
+                    <button class="clear-input" data-target="valorImovel">Limpar</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="valorEntrada">Valor da Entrada (R$):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="valorEntrada" min="0" step="1000" value="60000">
+                    <button class="clear-input" data-target="valorEntrada">Limpar</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="rendaMensal">Renda Mensal Bruta (R$):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="rendaMensal" min="0" step="500" value="8000">
+                     <button class="clear-input" data-target="rendaMensal">Limpar</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="prazoAnos">Prazo (anos):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="prazoAnos" min="1" max="35" step="1" value="30">
+                     <button class="clear-input" data-target="prazoAnos">Limpar</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="taxaJurosAnual">Taxa de Juros Anual (%):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="taxaJurosAnual" min="0.1" max="20" step="0.1" value="8.0">
+                     <button class="clear-input" data-target="taxaJurosAnual">Limpar</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="seguroMIP">Seguro MIP Mensal (estimado R$):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="seguroMIP" min="0" step="1" value="50">
+                     <button class="clear-input" data-target="seguroMIP">Limpar</button>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="includeMIP" checked>
+                    <label for="includeMIP">Incluir MIP na simulação</label>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="seguroDFI">Seguro DFI Mensal (estimado R$):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="seguroDFI" min="0" step="1" value="30">
+                     <button class="clear-input" data-target="seguroDFI">Limpar</button>
+                </div>
+                 <div class="checkbox-group">
+                    <input type="checkbox" id="includeDFI" checked>
+                    <label for="includeDFI">Incluir DFI na simulação</label>
+                </div>
+            </div>
+
+             <div class="input-group">
+                <label for="taxaAdministrativa">Taxa Administrativa Mensal (estimado R$):</label>
+                 <div class="input-with-button">
+                    <input type="number" id="taxaAdministrativa" min="0" step="1" value="25">
+                     <button class="clear-input" data-target="taxaAdministrativa">Limpar</button>
+                </div>
+                 <div class="checkbox-group">
+                    <input type="checkbox" id="includeTaxaAdmin" checked>
+                    <label for="includeTaxaAdmin">Incluir Taxa Administrativa na simulação</label>
+                </div>
+            </div>
+
+            <button id="simulateBtn">Simular Financiamento</button>
+            <button id="clearAllBtn" style="background-color: #dc3545; margin-top: 10px;">Limpar Todos os Dados</button>
+
+        </section>
+
+        <section class="results-section">
+            <h2>Resultados da Simulação</h2>
+            <div id="results-output">
+                <p>Preencha os dados e clique em "Simular" para ver os resultados.</p>
+
+                <div class="disclaimer-text">
+                    <p>* Estes são cálculos estimados e podem não refletir o valor exato das parcelas e do total pago, que podem variar entre as instituições financeiras e incluir outros encargos não considerados aqui.</p>
+                </div>
+
+                <div class="validation-text">
+                    </div>
+
+            </div>
+
+            <div class="share-buttons" style="margin-top: 20px; text-align: center;">
+                 <button id="copyResultsBtn" style="background-color: #28a745; margin-right: 10px; width: auto;">Copiar Resumo</button>
+                 <button id="whatsappShareBtn" style="background-color: #25D366; width: auto;">Compartilhar via WhatsApp</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 DiegodiMelo/SimuladorHabitacional. Todos os direitos reservados.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
