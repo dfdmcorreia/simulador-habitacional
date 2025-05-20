@@ -442,8 +442,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `Valor da Entrada: ${formatCurrency(valorEntrada)}\n` +
                                 `Valor Financiado: ${formatCurrency(valorFinanciado)}\n` +
                                 `Prazo: ${prazoAnos} anos (${prazoMeses} meses)\n` +
-                                `Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}%\n` +
-                                `Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}%\n` +
+                                `Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}\n` +
+                                `Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}\n` +
                                 (isMCMV ? `Simulação MCMV: ${getMCMVFaixaText(mcmvFaixaSelect.value)}, ${getMCMVRegiaoText(mcmvRegiaoSelect.value)}, ${getMCMVTipoParticipanteText(mcmvTipoParticipanteSelect.value)}\n` : '') +
                                 (includeMIPCheckbox.checked ? `Seguro MIP Mensal (estimado): ${formatCurrency(seguroMIP)}\n` : '') +
                                 (includeDFIChebox.checked ? `Seguro DFI Mensal (estimado): ${formatCurrency(seguroDFI)}\n` : '') +
