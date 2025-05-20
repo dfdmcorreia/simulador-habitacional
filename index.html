@@ -19,7 +19,7 @@
             <div class="input-group">
                 <label for="valorImovel">Valor do Imóvel (R$):</label>
                 <div class="input-with-button">
-                    <input type="number" id="valorImovel" min="0" step="1000" value="300000">
+                    <input type="text" id="valorImovel" value="300.000,00">
                     <button class="clear-input" data-target="valorImovel">Limpar</button>
                 </div>
             </div>
@@ -27,7 +27,7 @@
             <div class="input-group">
                 <label for="valorEntrada">Valor da Entrada (R$):</label>
                  <div class="input-with-button">
-                    <input type="number" id="valorEntrada" min="0" step="1000" value="60000">
+                    <input type="text" id="valorEntrada" value="60.000,00">
                     <button class="clear-input" data-target="valorEntrada">Limpar</button>
                 </div>
             </div>
@@ -35,7 +35,7 @@
             <div class="input-group">
                 <label for="rendaMensal">Renda Mensal Bruta (R$):</label>
                  <div class="input-with-button">
-                    <input type="number" id="rendaMensal" min="0" step="500" value="8000">
+                    <input type="text" id="rendaMensal" value="8.000,00">
                      <button class="clear-input" data-target="rendaMensal">Limpar</button>
                 </div>
             </div>
@@ -51,15 +51,48 @@
             <div class="input-group">
                 <label for="taxaJurosAnual">Taxa de Juros Anual (%):</label>
                  <div class="input-with-button">
-                    <input type="number" id="taxaJurosAnual" min="0.1" max="20" step="0.1" value="8.0">
+                    <input type="text" id="taxaJurosAnual" min="0.1" max="20" step="0.1" value="8,00">
                      <button class="clear-input" data-target="taxaJurosAnual">Limpar</button>
                 </div>
             </div>
 
+             <div class="input-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="includeMCMV">
+                    <label for="includeMCMV">Simular Minha Casa Minha Vida</label>
+                </div>
+            </div>
+
+            <div class="mcmv-options-group hidden"> <div class="input-group">
+                    <label for="mcmvFaixa">Faixa de Renda MCMV:</label>
+                    <select id="mcmvFaixa">
+                        <option value="faixa1">Faixa 1 (Renda até R$ 2.640)</option>
+                        <option value="faixa2">Faixa 2 (Renda de R$ 2.640,01 a R$ 4.400)</option>
+                        <option value="faixa3">Faixa 3 (Renda de R$ 4.400,01 a R$ 8.000)</option>
+                        <option value="faixa4">Faixa 4 (Renda de R$ 8.000,01 a R$ 12.000)</option>
+                    </select>
+                </div>
+
+                <div class="input-group"> <label for="mcmvRegiao">Região do Imóvel:</label>
+                    <select id="mcmvRegiao">
+                         <option value="outras">Sul, Sudeste e Centro-Oeste</option>
+                        <option value="norte-nordeste">Norte e Nordeste</option>
+                    </select>
+                </div>
+
+                 <div class="input-group"> <label for="mcmvTipoParticipante">Tipo de Participante:</label>
+                    <select id="mcmvTipoParticipante">
+                        <option value="nao-cotista">Não Cotista do FGTS</option>
+                        <option value="cotista">Cotista do FGTS</option>
+                    </select>
+                </div>
+            </div>
+
+
             <div class="input-group">
                 <label for="seguroMIP">Seguro MIP Mensal (estimado R$):</label>
                  <div class="input-with-button">
-                    <input type="number" id="seguroMIP" min="0" step="1" value="50">
+                    <input type="text" id="seguroMIP" min="0" step="1" value="50,00">
                      <button class="clear-input" data-target="seguroMIP">Limpar</button>
                 </div>
                 <div class="checkbox-group">
@@ -71,7 +104,7 @@
             <div class="input-group">
                 <label for="seguroDFI">Seguro DFI Mensal (estimado R$):</label>
                  <div class="input-with-button">
-                    <input type="number" id="seguroDFI" min="0" step="1" value="30">
+                    <input type="text" id="seguroDFI" min="0" step="1" value="30,00">
                      <button class="clear-input" data-target="seguroDFI">Limpar</button>
                 </div>
                  <div class="checkbox-group">
@@ -83,7 +116,7 @@
              <div class="input-group">
                 <label for="taxaAdministrativa">Taxa Administrativa Mensal (estimado R$):</label>
                  <div class="input-with-button">
-                    <input type="number" id="taxaAdministrativa" min="0" step="1" value="25">
+                    <input type="text" id="taxaAdministrativa" min="0" step="1" value="25,00">
                      <button class="clear-input" data-target="taxaAdministrativa">Limpar</button>
                 </div>
                  <div class="checkbox-group">
@@ -107,8 +140,10 @@
                 </div>
 
                 <div class="validation-text">
-                    </div>
+                </div>
 
+                <div id="simulation-text-summary" style="white-space: pre-wrap; margin-top: 20px;">
+                </div>
             </div>
 
             <div class="share-buttons" style="margin-top: 20px; text-align: center;">
