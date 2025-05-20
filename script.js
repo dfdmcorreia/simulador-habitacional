@@ -55,6 +55,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const simulationMainResultsDiv = document.getElementById('results-output'); 
     const validationTextDiv = document.querySelector('#results-output .validation-text'); 
 
+    // Elementos do Modal de Mensagem
+    const messageModal = document.getElementById('messageModal');
+    const modalMessage = document.getElementById('modalMessage');
+    const modalCloseButton = document.getElementById('modalCloseButton');
+    const closeButtonSpan = document.querySelector('.close-button');
+
+
     // --- Constantes da Aplicação ---
     const INCOME_COMMITMENT_RATIO = 0.30; // Limite de 30% da renda para a parcela do financiamento
 
@@ -396,8 +403,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <p>Valor da Entrada: ${formatCurrency(valorEntrada)}</p>
             <p>Valor Financiado: ${formatCurrency(valorFinanciado)}</p>
             <p>Prazo: ${prazoAnos} anos (${prazoMeses} meses)</p>
-            <p>Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}%</p>
-            <p>Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}%</p>
+            <p>Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}</p>
+            <p>Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}</p>
             ${mcmvInfo}
             ${custosAdicionaisInfo}
 
@@ -442,11 +449,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `Valor da Entrada: ${formatCurrency(valorEntrada)}\n` +
                                 `Valor Financiado: ${formatCurrency(valorFinanciado)}\n` +
                                 `Prazo: ${prazoAnos} anos (${prazoMeses} meses)\n` +
-                                `Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}\n` +
-                                `Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}\n` +
+                                `Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}%\n` +
+                                `Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal * 100)}%\n` +
                                 (isMCMV ? `Simulação MCMV: ${getMCMVFaixaText(mcmvFaixaSelect.value)}, ${getMCMVRegiaoText(mcmvRegiaoSelect.value)}, ${getMCMVTipoParticipanteText(mcmvTipoParticipanteSelect.value)}\n` : '') +
                                 (includeMIPCheckbox.checked ? `Seguro MIP Mensal (estimado): ${formatCurrency(seguroMIP)}\n` : '') +
-                                (includeDFIChebox.checked ? `Seguro DFI Mensal (estimado): ${formatCurrency(seguroDFI)}\n` : '') +
+                                (includeDFICheckbox.checked ? `Seguro DFI Mensal (estimado): ${formatCurrency(seguroDFI)}\n` : '') +
                                 (includeTaxaAdminCheckbox.checked ? `Taxa Administrativa Mensal (estimado): ${formatCurrency(taxaAdministrativa)}\n` : '') +
                                 `\n*Simulação SAC*\n` +
                                 `Primeira Parcela (COM taxas): ${formatCurrency(primeiraParcelaSAC_comTaxas)}\n` +
@@ -490,18 +497,38 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Exibe um modal de mensagem personalizado na tela.
+     * @param {string} message - A mensagem a ser exibida.
+     */
+    function showMessageModal(message) {
+        if (messageModal && modalMessage) {
+            modalMessage.textContent = message;
+            messageModal.classList.remove('hidden'); // Mostra o modal
+        }
+    }
+
+    /**
+     * Esconde o modal de mensagem personalizado.
+     */
+    function hideMessageModal() {
+        if (messageModal) {
+            messageModal.classList.add('hidden'); // Esconde o modal
+        }
+    }
+
+    /**
      * Copia o resumo da simulação para a área de transferência do usuário.
      */
     function copyResults() {
         if (!textSummaryForSharing) {
-            alert('Não há resultados para copiar. Realize uma simulação primeiro.');
+            showMessageModal('Não há resultados para copiar. Realize uma simulação primeiro.');
             return;
         }
         navigator.clipboard.writeText(textSummaryForSharing).then(() => {
-            alert('Resultados copiados para a área de transferência! Cole em um aplicativo de mensagens ou editor de texto para ver a formatação.');
+            showMessageModal(alert('Resultados copiados para a área de transferência! Cole em um aplicativo de mensagens ou editor de texto para ver a formatação.'));
         }).catch(err => {
             console.error('Erro ao copiar resultados: ', err);
-            alert('Erro ao copiar resultados. Por favor, tente copiar manualmente.');
+            showMessageModal('Erro ao copiar resultados. Por favor, tente copiar manualmente.');
         });
     }
 
@@ -510,13 +537,15 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function shareViaWhatsApp() {
         if (!textSummaryForSharing) {
-            alert('Não há resultados para compartilhar. Realize uma simulação primeiro.');
+            showMessageModal('Não há resultados para compartilhar. Realize uma simulação primeiro.');
             return;
         }
         // Codifica o texto para ser seguro em URLs
         const whatsappMessage = encodeURIComponent(textSummaryForSharing);
         const whatsappLink = `https://wa.me/?text=${whatsappMessage}`;
         window.open(whatsappLink, '_blank'); // Abre em uma nova aba
+        // Opcional: Mostrar uma mensagem de sucesso após tentar abrir o WhatsApp
+        // showMessageModal('Abrindo WhatsApp para compartilhar...');
     }
 
     /**
@@ -598,6 +627,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (copyResultsBtn) copyResultsBtn.addEventListener('click', copyResults);
     if (whatsappShareBtn) whatsappShareBtn.addEventListener('click', shareViaWhatsApp);
     if (clearAllBtn) clearAllBtn.addEventListener('click', handleClearAll);
+
+    // Adiciona ouvintes para fechar o modal de mensagem
+    if (modalCloseButton) modalCloseButton.addEventListener('click', hideMessageModal);
+    if (closeButtonSpan) closeButtonSpan.addEventListener('click', hideMessageModal);
+    if (messageModal) { // Fecha o modal clicando fora dele
+        messageModal.addEventListener('click', (event) => {
+            if (event.target === messageModal) {
+                hideMessageModal();
+            }
+        });
+    }
 
     // Adiciona ouvintes de clique aos botões "Limpar" individuais
     clearInputButtons.forEach(button => button.addEventListener('click', handleClearInput));
