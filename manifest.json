@@ -2,7 +2,7 @@
     "name": "Simulador Habitacional",
     "short_name": "SimuladorHab",
     "description": "Simulador simplificado de financiamento habitacional",
-    "start_url": "index.html",
+    "start_url": "/simulador-habitacional-mcmv/",
     "display": "standalone",
     "background_color": "#f4f4f4",
     "theme_color": "#0056b3",
