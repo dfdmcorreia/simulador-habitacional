@@ -52,6 +52,7 @@ main {
 /* Estilos para o agrupamento de rótulo e input */
 .input-group {
     margin-bottom: 15px; /* Espaço abaixo de cada grupo de input */
+    /* Removido display: flex e flex-direction: column para acomodar o botão de limpar inline */
 }
 
 /* Estilos para o contêiner do input e botão de limpar */
@@ -142,12 +143,14 @@ button#clearAllBtn:hover {
     border-radius: 4px; /* Cantos arredondados */
     white-space: pre-wrap; /* Preserva quebras de linha e espaços */
     word-wrap: break-word; /* Quebra palavras longas */
-    line-height: 0.3em; /* Mantido line-height baixo conforme solicitado */
+    /* Mantido line-height baixo conforme solicitado */
+    line-height: 0.3em;
 }
 
 /* Estilos para os parágrafos dentro da área de resultados */
 #results-output p {
-    margin-bottom: 8px; /* Adicionado margin-bottom para criar espaço entre parágrafos */
+    /* Adicionado margin-bottom para criar espaço entre parágrafos */
+    margin-bottom: 8px; /* Ajuste este valor conforme necessário para o espaçamento desejado */
     line-height: 1.5; /* Define um line-height normal para os parágrafos */
 }
 
@@ -223,7 +226,7 @@ footer {
 }
 
 /* Estilos para o grupo de opções MCMV */
-.mcmv-options-group { /* CORRIGIDO: Estilo para o novo grupo de opções MCMV */
+.mcmv-options-group {
     border: 1px dashed #ccc; /* Borda tracejada para destacar */
     padding: 15px; /* Espaçamento interno */
     margin-bottom: 15px; /* Espaço abaixo do grupo */
