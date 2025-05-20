@@ -52,7 +52,6 @@ main {
 /* Estilos para o agrupamento de rótulo e input */
 .input-group {
     margin-bottom: 15px; /* Espaço abaixo de cada grupo de input */
-    /* Removido display: flex e flex-direction: column para acomodar o botão de limpar inline */
 }
 
 /* Estilos para o contêiner do input e botão de limpar */
@@ -62,6 +61,7 @@ main {
     align-items: center; /* Alinha verticalmente ao centro */
 }
 
+.input-with-button input[type="text"],
 .input-with-button input[type="number"] {
     flex-grow: 1; /* Permite que o input cresça e ocupe o espaço disponível */
     width: auto; /* Anula a largura 100% anterior para funcionar com flex-grow */
@@ -75,8 +75,10 @@ label {
     font-weight: bold; /* Texto em negrito */
 }
 
-/* Estilos para os campos de input */
-input[type="number"] {
+/* Estilos para os campos de input e select */
+input[type="text"],
+input[type="number"],
+select {
     width: 100%; /* Ocupa a largura total do contêiner pai */
     padding: 10px; /* Preenchimento interno */
     border: 1px solid #ccc; /* Borda cinza */
@@ -140,14 +142,13 @@ button#clearAllBtn:hover {
     border-radius: 4px; /* Cantos arredondados */
     white-space: pre-wrap; /* Preserva quebras de linha e espaços */
     word-wrap: break-word; /* Quebra palavras longas */
-    /* line-height baixo para a maioria dos resultados em telas maiores */
-    line-height: 0.3em;
+    line-height: 0.3em; /* Mantido line-height baixo conforme solicitado */
 }
 
 /* Estilos para os parágrafos dentro da área de resultados */
-/* Estes parágrafos herdarão o line-height baixo de #results-output */
 #results-output p {
-    margin-bottom: 5px; /* Reduz a margem inferior dos parágrafos */
+    margin-bottom: 8px; /* Adicionado margin-bottom para criar espaço entre parágrafos */
+    line-height: 1.5; /* Define um line-height normal para os parágrafos */
 }
 
 /* Remove a margem inferior do último parágrafo para evitar espaço extra */
@@ -155,7 +156,7 @@ button#clearAllBtn:hover {
     margin-bottom: 0;
 }
 
-/* Estilos para os divs de aviso e validação para sobrescrever o line-height baixo */
+/* Estilos para os divs de aviso e validação para garantir line-height normal */
 .disclaimer-text, .validation-text {
     line-height: 1.5; /* Espaçamento de linha normal para melhor leitura */
     margin-top: 15px; /* Adiciona espaço acima desses blocos */
@@ -163,7 +164,7 @@ button#clearAllBtn:hover {
 }
 
 .disclaimer-text p, .validation-text p {
-    line-height: 1.5; /* Sobrescreve o line-height baixo da div pai */
+    line-height: 1.5; /* Garante espaçamento de linha normal */
     margin-bottom: 5px; /* Mantém uma pequena margem entre parágrafos dentro dessas divs */
 }
 
@@ -216,6 +217,24 @@ footer {
     font-weight: normal; /* Garante que o texto do label não seja negrito */
 }
 
+/* Estilo para esconder elementos */
+.hidden {
+    display: none;
+}
+
+/* Estilos para o grupo de opções MCMV */
+.mcmv-options-group { /* CORRIGIDO: Estilo para o novo grupo de opções MCMV */
+    border: 1px dashed #ccc; /* Borda tracejada para destacar */
+    padding: 15px; /* Espaçamento interno */
+    margin-bottom: 15px; /* Espaço abaixo do grupo */
+    border-radius: 8px; /* Cantos arredondados */
+    background-color: #eef; /* Fundo levemente azulado */
+}
+
+.mcmv-options-group .input-group {
+    margin-bottom: 10px; /* Espaço menor entre os grupos dentro do MCMV */
+}
+
 
 /* Estilos para telas menores (responsividade) */
 @media (max-width: 600px) {
@@ -247,6 +266,7 @@ footer {
         align-items: flex-start; /* Alinha input e botão à esquerda */
     }
 
+    .input-with-button input[type="text"],
     .input-with-button input[type="number"] {
         width: 100%; /* Input ocupa a largura total */
     }
@@ -255,8 +275,13 @@ footer {
         width: auto; /* Botão de limpar volta a ter largura automática */
      }
 
-    /* NOVO: Ajusta o line-height da área de resultados em telas pequenas */
+    /* Ajusta o line-height da área de resultados em telas pequenas */
     #results-output {
         line-height: 1.4; /* Valor mais legível para telas pequenas */
+    }
+
+     /* Ajustes para o grupo MCMV em telas pequenas */
+    .mcmv-options-group {
+        padding: 10px; /* Reduz o padding interno */
     }
 }
