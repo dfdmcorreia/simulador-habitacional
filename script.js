@@ -1,391 +1,501 @@
 // Registra o Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
-            // Registro bem-sucedido
+        navigator.serviceWorker.register('service-worker.js').then(function(registration) {
             console.log('Service Worker registrado com sucesso:', registration.scope);
         }, function(err) {
-            // Falha no registro
             console.log('Falha no registro do Service Worker:', err);
         });
     });
 }
-// Aguarda o carregamento completo do DOM (Document Object Model)
+
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Obtém referências para os elementos HTML ---
+    'use strict'; // Using strict mode for better error handling and practices
+
+    console.log('DOM completamente carregado.');
+
+    // --- Cache de Seletores DOM ---
     const valorImovelInput = document.getElementById('valorImovel');
     const valorEntradaInput = document.getElementById('valorEntrada');
     const rendaMensalInput = document.getElementById('rendaMensal');
     const prazoAnosInput = document.getElementById('prazoAnos');
     const taxaJurosAnualInput = document.getElementById('taxaJurosAnual');
-    // Campos para custos adicionais
+
+    const includeMCMVCheckbox = document.getElementById('includeMCMV');
+    const mcmvOptionsGroup = document.querySelector('.mcmv-options-group');
+    const mcmvFaixaSelect = document.getElementById('mcmvFaixa');
+    const mcmvRegiaoSelect = document.getElementById('mcmvRegiao');
+    const mcmvTipoParticipanteSelect = document.getElementById('mcmvTipoParticipante');
+
     const seguroMIPInput = document.getElementById('seguroMIP');
     const seguroDFIInput = document.getElementById('seguroDFI');
     const taxaAdministrativaInput = document.getElementById('taxaAdministrativa');
-    // Checkboxes para incluir/excluir custos adicionais
+
     const includeMIPCheckbox = document.getElementById('includeMIP');
-    const includeDFICheckbox = document.getElementById('includeDFI');
+    const includeDFICheckbox = document.getElementById('includeDFI'); // Corrigido na v1
     const includeTaxaAdminCheckbox = document.getElementById('includeTaxaAdmin');
 
     const simulateBtn = document.getElementById('simulateBtn');
-    const resultsOutput = document.getElementById('results-output');
-    // Referência para a nova div de validação
-    const validationTextDiv = resultsOutput.querySelector('.validation-text');
+    const simulationMainResultsDiv = document.getElementById('simulation-main-results'); // Assumindo HTML ajustado
+    const validationTextDiv = document.querySelector('results-output .validation-text'); // Assumindo HTML ajustado
 
-    // Botões de compartilhamento
     const copyResultsBtn = document.getElementById('copyResultsBtn');
     const whatsappShareBtn = document.getElementById('whatsappShareBtn');
-    // Botões de limpar
-    const clearInputButtons = document.querySelectorAll('.clear-input'); // Seleciona todos os botões com a classe clear-input
-    const clearAllBtn = document.getElementById('clearAllBtn'); // Botão Limpar Todos
+    const clearInputButtons = document.querySelectorAll('.clear-input');
+    const clearAllBtn = document.getElementById('clearAllBtn');
 
-    // Variável para armazenar o resumo em texto formatado para compartilhamento
+    // --- Constantes ---
+    const INCOME_COMMITMENT_RATIO = 0.30;
+
+    // --- Estado da Aplicação ---
     let textSummaryForSharing = '';
 
-    // --- Adiciona ouvintes de evento ---
-    // Botão de simulação
-    simulateBtn.addEventListener('click', handleSimulation);
-    // Botões de compartilhamento
-    copyResultsBtn.addEventListener('click', copyResults);
-    whatsappShareBtn.addEventListener('click', shareViaWhatsApp);
+    // --- Taxas de Juros de Exemplo por Faixa, Região e Tipo de Participante MCMV (Ilustrativas) ---
+    const mcmvTaxasExemplo = {
+        faixa1: {
+            'norte-nordeste': { 'cotista': 4.00, 'nao-cotista': 4.25 },
+            'outras': { 'cotista': 4.25, 'nao-cotista': 4.50 }
+        },
+        faixa2: {
+            'norte-nordeste': { 'cotista': 4.60, 'nao-cotista': 4.85 },
+            'outras': { 'cotista': 4.85, 'nao-cotista': 5.10 }
+        },
+        faixa3: {
+            'norte-nordeste': { 'cotista': 7.66, 'nao-cotista': 8.16 },
+            'outras': { 'cotista': 8.16, 'nao-cotista': 8.66 }
+        },
+         faixa4: {
+            'norte-nordeste': { 'cotista': 9.16, 'nao-cotista': 9.16 },
+            'outras': { 'cotista': 9.16, 'nao-cotista': 9.16 }
+        }
+    };
 
-    // Botões de limpar individuais
-    clearInputButtons.forEach(button => {
-        button.addEventListener('click', handleClearInput);
-    });
-    // Botão Limpar Todos
-    clearAllBtn.addEventListener('click', handleClearAll);
+    const mcmvMinEntradaPorcentagem = {
+        faixa1: 10, faixa2: 15, faixa3: 20, faixa4: 25
+    };
+    const defaultMinEntradaPorcentagem = 20;
 
+    // --- Funções Auxiliares de Formatação Numérica ---
+    function unformatNumberString(formattedString) {
+        if (typeof formattedString !== 'string' || !formattedString) return '';
+        // Remove pontos de milhar (todos) e substitui a vírgula decimal por ponto.
+        return formattedString.replace(/\./g, '').replace(/,/g, '.');
+    }
 
-    // --- Função que lida com o evento de clique no botão de simulação ---
+    function formatNumberString(number) {
+        if (isNaN(number)) return '';
+        // Formata para o padrão pt-BR com duas casas decimais.
+        return number.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ##########################################################################
+    // ## Função handleBlurFormatting CORRIGIDA para o problema dos 30 milhões ##
+    // ##########################################################################
+    function handleBlurFormatting(event) {
+        const input = event.target;
+        let valueToParse = input.value;
+
+        // Se o valor no input já está no formato "numero.decimal" (ex: "300000.00", vindo do onfocus)
+        // e não contém vírgulas, então parseFloat pode lidar com ele diretamente.
+        // Não precisamos do unformatNumberString completo que remove TODOS os pontos.
+        if (valueToParse.includes('.') && !valueToParse.includes(',')) {
+            // O valor já está como "300000.00". parseFloat lida com isso.
+            // valueToParse permanece como está para o parseFloat.
+        } else {
+            // Se o valor está no formato "300.000,00" ou o usuário digitou "150,50",
+            // usamos unformatNumberString para converter para "numero.decimal".
+            valueToParse = unformatNumberString(input.value); // Ex: "300.000,00" -> "300000.00"; "150,50" -> "150.50"
+        }
+
+        const number = parseFloat(valueToParse); // Ex: parseFloat("300000.00") -> 300000.00
+
+        if (!isNaN(number)) {
+            input.value = formatNumberString(number); // Ex: formatNumberString(300000.00) -> "300.000,00"
+        } else {
+            input.value = ''; // Limpa o campo se o valor não for um número válido após o parse
+        }
+
+        // Se o input que perdeu o foco for o valor do imóvel, recalcula a entrada mínima
+        if (input.id === 'valorImovel') {
+            calculateAndSetMinEntrada();
+        }
+    }
+    // ##########################################################################
+
+    function handleFocusUnformatting(event) {
+        const input = event.target;
+        // Ao focar, remove a formatação de milhar e troca vírgula por ponto para facilitar a edição.
+        // Ex: "300.000,00" -> "300000.00"
+        input.value = unformatNumberString(input.value);
+    }
+
+    function formatCurrency(number) {
+        if (isNaN(number)) return 'N/A';
+        return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatPercentage(number, multiplyBy100 = false) {
+        if (isNaN(number)) return 'N/A';
+        const valueToFormat = multiplyBy100 ? number * 100 : number;
+        return valueToFormat.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+    }
+
+    function getMCMVFaixaText(faixaValue) {
+        const faixas = {
+            faixa1: 'Faixa 1 (Renda até R$ 2.640)',
+            faixa2: 'Faixa 2 (Renda de R$ 2.640,01 a R$ 4.400)',
+            faixa3: 'Faixa 3 (Renda de R$ 4.400,01 a R$ 8.000)',
+            faixa4: 'Faixa 4 (Renda de R$ 8.000,01 a R$ 12.000)'
+        };
+        return faixas[faixaValue] || 'Não especificada';
+    }
+
+    function getMCMVRegiaoText(regiaoValue) {
+        const regioes = {
+            'norte-nordeste': 'Norte e Nordeste',
+            'outras': 'Sul, Sudeste e Centro-Oeste'
+        };
+        return regioes[regiaoValue] || 'Não especificada';
+    }
+
+    function getMCMVTipoParticipanteText(tipoValue) {
+        const tipos = {
+            'cotista': 'Cotista do FGTS',
+            'nao-cotista': 'Não Cotista do FGTS'
+        };
+        return tipos[tipoValue] || 'Não especificado';
+    }
+
+    function updateTaxaJurosMCMV() {
+        if (!includeMCMVCheckbox.checked || !mcmvFaixaSelect || !mcmvRegiaoSelect || !mcmvTipoParticipanteSelect) {
+            return;
+        }
+        const selectedFaixa = mcmvFaixaSelect.value;
+        const selectedRegiao = mcmvRegiaoSelect.value;
+        const selectedTipo = mcmvTipoParticipanteSelect.value;
+
+        const taxaCorrespondente = mcmvTaxasExemplo[selectedFaixa]?.[selectedRegiao]?.[selectedTipo];
+
+        if (taxaCorrespondente !== undefined) {
+            taxaJurosAnualInput.value = formatNumberString(taxaCorrespondente);
+        } else {
+            console.warn('Taxa MCMV não encontrada para a combinação selecionada. Manter taxa atual.');
+        }
+    }
+
+    function calculateAndSetMinEntrada() {
+        const valorImovelStr = unformatNumberString(valorImovelInput.value);
+        const valorImovel = parseFloat(valorImovelStr);
+
+        if (isNaN(valorImovel) || valorImovel <= 0) {
+            valorEntradaInput.value = formatNumberString(0); // Ou '' se preferir campo vazio
+            return;
+        }
+
+        let porcentagemEntrada = defaultMinEntradaPorcentagem;
+        if (includeMCMVCheckbox.checked && mcmvFaixaSelect) {
+            const selectedFaixa = mcmvFaixaSelect.value;
+            porcentagemEntrada = mcmvMinEntradaPorcentagem[selectedFaixa] ?? defaultMinEntradaPorcentagem;
+        }
+
+        const minEntradaCalculada = valorImovel * (porcentagemEntrada / 100);
+        valorEntradaInput.value = formatNumberString(minEntradaCalculada);
+    }
+
     function handleSimulation() {
-        // Obtém os valores dos campos de entrada e converte para números
-        const valorImovel = parseFloat(valorImovelInput.value);
-        const valorEntrada = parseFloat(valorEntradaInput.value);
-        const rendaMensal = parseFloat(rendaMensalInput.value);
-        const prazoAnos = parseInt(prazoAnosInput.value);
-        const taxaJurosAnual = parseFloat(taxaJurosAnualInput.value);
+        console.log('Botão Simular clicado. Iniciando simulação...');
 
-        // Obtém os valores dos campos opcionais, considerando se o checkbox está marcado
-        const seguroMIP = includeMIPCheckbox.checked ? (parseFloat(seguroMIPInput.value) || 0) : 0;
-        const seguroDFI = includeDFICheckbox.checked ? (parseFloat(seguroDFIInput.value) || 0) : 0;
-        const taxaAdministrativa = includeTaxaAdminCheckbox.checked ? (parseFloat(taxaAdministrativaInput.value) || 0) : 0;
+        const valorImovel = parseFloat(unformatNumberString(valorImovelInput.value));
+        const valorEntrada = parseFloat(unformatNumberString(valorEntradaInput.value));
+        const rendaMensal = parseFloat(unformatNumberString(rendaMensalInput.value));
+        const prazoAnos = parseInt(prazoAnosInput.value, 10);
+        const taxaJurosAnual = parseFloat(unformatNumberString(taxaJurosAnualInput.value));
 
+        const seguroMIP = includeMIPCheckbox.checked ? (parseFloat(unformatNumberString(seguroMIPInput.value)) || 0) : 0;
+        const seguroDFI = includeDFICheckbox.checked ? (parseFloat(unformatNumberString(seguroDFIInput.value)) || 0) : 0;
+        const taxaAdministrativa = includeTaxaAdminCheckbox.checked ? (parseFloat(unformatNumberString(taxaAdministrativaInput.value)) || 0) : 0;
 
-        // --- Validação básica dos inputs ---
-        if (isNaN(valorImovel) || isNaN(valorEntrada) || isNaN(rendaMensal) || isNaN(prazoAnos) || isNaN(taxaJurosAnual)) {
-            resultsOutput.innerHTML = '<p style="color: red;">Por favor, preencha os campos principais (Valor do Imóvel, Entrada, Renda, Prazo, Taxa de Juros) com valores numéricos válidos.</p>';
-            // Limpa o resumo de texto e desabilita botões de compartilhamento em caso de erro
-            textSummaryForSharing = '';
-            copyResultsBtn.disabled = true;
-            whatsappShareBtn.disabled = true;
-             // Limpa a div de validação
+        let errors = [];
+        if (isNaN(valorImovel) || valorImovel <= 0) errors.push("Valor do Imóvel deve ser positivo.");
+        if (isNaN(valorEntrada) || valorEntrada < 0) errors.push("Valor da Entrada deve ser positivo ou zero.");
+        if (isNaN(rendaMensal) || rendaMensal <= 0) errors.push("Renda Mensal deve ser positiva.");
+        if (isNaN(prazoAnos) || prazoAnos <= 0) errors.push("Prazo em anos deve ser positivo.");
+        if (isNaN(taxaJurosAnual) || taxaJurosAnual < 0) errors.push("Taxa de Juros Anual deve ser positiva ou zero.");
+        if (!isNaN(valorEntrada) && !isNaN(valorImovel) && valorEntrada > valorImovel) errors.push("Valor da Entrada não pode ser maior que o Valor do Imóvel.");
+
+        if (errors.length > 0) {
+            if (simulationMainResultsDiv) simulationMainResultsDiv.innerHTML = `<p style="color: red;">Por favor, corrija os seguintes erros:<br>${errors.join("<br>")}</p>`;
             if (validationTextDiv) validationTextDiv.innerHTML = '';
-            return; // Interrompe a execução da função
+            textSummaryForSharing = '';
+            if (copyResultsBtn) copyResultsBtn.disabled = true;
+            if (whatsappShareBtn) whatsappShareBtn.disabled = true;
+            return;
         }
 
-        if (valorEntrada > valorImovel) {
-             resultsOutput.innerHTML = '<p style="color: red;">O valor da entrada não pode ser maior que o valor do imóvel.</p>';
-             // Limpa o resumo de texto e desabilita botões de compartilhamento em caso de erro
-             textSummaryForSharing = '';
-             copyResultsBtn.disabled = true;
-             whatsappShareBtn.disabled = true;
-              // Limpa a div de validação
-             if (validationTextDiv) validationTextDiv.innerHTML = '';
-             return; // Interrompe a execução da função
-        }
-
-         if (valorImovel <= 0 || rendaMensal <= 0 || prazoAnos <= 0 || taxaJurosAnual < 0) {
-             resultsOutput.innerHTML = '<p style="color: red;">Valor do imóvel, renda mensal e prazo devem ser maiores que zero. A taxa de juros anual deve ser zero ou maior.</p>';
-             // Limpa o resumo de texto e desabilita botões de compartilhamento em caso de erro
-             textSummaryForSharing = '';
-             copyResultsBtn.disabled = true;
-             whatsappShareBtn.disabled = true;
-              // Limpa a div de validação
-             if (validationTextDiv) validationTextDiv.innerHTML = '';
-             return; // Interrompe a execução da função
-         }
-
-
-        // Calcula o valor a ser financiado
         const valorFinanciado = valorImovel - valorEntrada;
-
-        // Converte a taxa de juros anual para mensal (em decimal)
+        if (valorFinanciado <=0) {
+            if (simulationMainResultsDiv) simulationMainResultsDiv.innerHTML = `<p style="color: orange;">O valor a ser financiado é zero ou negativo. Verifique o valor do imóvel e da entrada.</p>`;
+            if (validationTextDiv) validationTextDiv.innerHTML = '';
+            textSummaryForSharing = '';
+            if (copyResultsBtn) copyResultsBtn.disabled = true;
+            if (whatsappShareBtn) whatsappShareBtn.disabled = true;
+            return;
+        }
         const taxaJurosMensal = (taxaJurosAnual / 100) / 12;
-
-        // Converte o prazo de anos para meses
         const prazoMeses = prazoAnos * 12;
-
-        // --- Cálculo da Parcela (Método SAC - Sistema de Amortização Constante) ---
-        // SAC: A amortização (redução do saldo devedor) é constante.
-        // O valor da parcela diminui ao longo do tempo.
 
         let saldoDevedorSAC = valorFinanciado;
         let totalJurosSAC = 0;
         let totalPagoSAC = 0;
         let primeiraParcelaSAC_semTaxas = 0;
         let ultimaParcelaSAC_semTaxas = 0;
-        let primeiraParcelaSAC_comTaxas = 0;
-        let ultimaParcelaSAC_comTaxas = 0;
+        const amortizacaoMensalSAC = valorFinanciado / prazoMeses;
 
-
-        // Calcula cada parcela no sistema SAC
         for (let i = 1; i <= prazoMeses; i++) {
-            const jurosMensal = saldoDevedorSAC * taxaJurosMensal;
-            const amortizacaoMensal = valorFinanciado / prazoMeses;
-            const parcelaMensal_semTaxas = jurosMensal + amortizacaoMensal;
-            const parcelaMensal_comTaxas = parcelaMensal_semTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
-
-            saldoDevedorSAC -= amortizacaoMensal;
-            totalJurosSAC += jurosMensal;
-            totalPagoSAC += parcelaMensal_comTaxas; // Soma o total pago com as taxas
-
-            if (i === 1) {
-                primeiraParcelaSAC_semTaxas = parcelaMensal_semTaxas;
-                primeiraParcelaSAC_comTaxas = parcelaMensal_comTaxas;
-            }
-            if (i === prazoMeses) {
-                 ultimaParcelaSAC_semTaxas = parcelaMensal_semTaxas;
-                 ultimaParcelaSAC_comTaxas = parcelaMensal_comTaxas;
-            }
+            const jurosDoMes = saldoDevedorSAC * taxaJurosMensal;
+            const parcelaSemTaxas = jurosDoMes + amortizacaoMensalSAC;
+            if (i === 1) primeiraParcelaSAC_semTaxas = parcelaSemTaxas;
+            if (i === prazoMeses) ultimaParcelaSAC_semTaxas = parcelaSemTaxas;
+            totalJurosSAC += jurosDoMes;
+            totalPagoSAC += parcelaSemTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
+            saldoDevedorSAC -= amortizacaoMensalSAC;
         }
-
-
-        // --- Cálculo da Parcela (Método PRICE - Sistema Francês de Amortização) ---
-        // PRICE: O valor da parcela (sem seguros e taxas administrativas) é constante.
-        // A amortização aumenta e os juros diminuem ao longo do tempo.
+        const primeiraParcelaSAC_comTaxas = primeiraParcelaSAC_semTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
+        const ultimaParcelaSAC_comTaxas = ultimaParcelaSAC_semTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
 
         let parcelaPRICE_semTaxas = 0;
-        let parcelaPRICE_comTaxas = 0;
-        let totalJurosPRICE = 0;
-        let totalPagoPRICE = 0;
-
-        // Fórmula da Parcela PRICE: PMT = PV * [i / (1 - (1 + i)^-n)]
-        // PMT = Parcela Mensal
-        // PV = Valor Financiado
-        // i = Taxa de Juros Mensal
-        // n = Prazo em Meses
-
         if (taxaJurosMensal > 0) {
-             parcelaPRICE_semTaxas = valorFinanciado * (taxaJurosMensal / (1 - Math.pow(1 + taxaJurosMensal, -prazoMeses)));
+            parcelaPRICE_semTaxas = valorFinanciado * (taxaJurosMensal / (1 - Math.pow(1 + taxaJurosMensal, -prazoMeses)));
         } else {
-            // Se a taxa de juros for zero, a parcela é simplesmente o valor financiado dividido pelo prazo
             parcelaPRICE_semTaxas = valorFinanciado / prazoMeses;
         }
+        const parcelaPRICE_comTaxas = parcelaPRICE_semTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
+        const totalPagoPRICE = parcelaPRICE_comTaxas * prazoMeses;
+        const totalJurosPRICE = (parcelaPRICE_semTaxas * prazoMeses) - valorFinanciado;
 
-        // Calcula a parcela PRICE incluindo os custos adicionais
-        parcelaPRICE_comTaxas = parcelaPRICE_semTaxas + seguroMIP + seguroDFI + taxaAdministrativa;
+        const isMCMV = includeMCMVCheckbox.checked;
+        const mcmvInfo = isMCMV ?
+            `<p>Simulação MCMV: ${getMCMVFaixaText(mcmvFaixaSelect.value)}, ${getMCMVRegiaoText(mcmvRegiaoSelect.value)}, ${getMCMVTipoParticipanteText(mcmvTipoParticipanteSelect.value)}</p>` : '';
 
-        // Calcula o total pago e total de juros no sistema PRICE (com base na parcela sem taxas para o cálculo dos juros)
-        totalPagoPRICE = parcelaPRICE_comTaxas * prazoMeses;
-        totalJurosPRICE = (parcelaPRICE_semTaxas * prazoMeses) - valorFinanciado;
+        const custosAdicionaisInfo = (includeMIPCheckbox.checked ? `<p>Seguro MIP Mensal (estimado): ${formatCurrency(seguroMIP)}</p>` : '') +
+                                     (includeDFICheckbox.checked ? `<p>Seguro DFI Mensal (estimado): ${formatCurrency(seguroDFI)}</p>` : '') +
+                                     (includeTaxaAdminCheckbox.checked ? `<p>Taxa Administrativa Mensal (estimado): ${formatCurrency(taxaAdministrativa)}</p>` : '');
 
-
-        // --- Exibição dos Resultados na Página (HTML) ---
-
-        // Limpa o conteúdo principal da div de resultados, mas mantém as divs de aviso e validação
-        let mainResultsHTML = `
+        const mainResultsHTML = `
             <h3>Resumo da Simulação</h3>
-            <p>Valor do Imóvel: R$ ${valorImovel.toFixed(2)}</p>
-            <p>Valor da Entrada: R$ ${valorEntrada.toFixed(2)}</p>
-            <p>Valor Financiado: R$ ${valorFinanciado.toFixed(2)}</p>
+            <p>Valor do Imóvel: ${formatCurrency(valorImovel)}</p>
+            <p>Valor da Entrada: ${formatCurrency(valorEntrada)}</p>
+            <p>Valor Financiado: ${formatCurrency(valorFinanciado)}</p>
             <p>Prazo: ${prazoAnos} anos (${prazoMeses} meses)</p>
-            <p>Taxa de Juros Anual: ${taxaJurosAnual.toFixed(2)}%</p>
-            <p>Taxa de Juros Mensal: ${(taxaJurosMensal * 100).toFixed(4)}%</p>
-            ${includeMIPCheckbox.checked ? `<p>Seguro MIP Mensal (estimado): R$ ${seguroMIP.toFixed(2)}</p>` : ''}
-            ${includeDFICheckbox.checked ? `<p>Seguro DFI Mensal (estimado): R$ ${seguroDFI.toFixed(2)}</p>` : ''}
-            ${includeTaxaAdminCheckbox.checked ? `<p>Taxa Administrativa Mensal (estimado): R$ ${taxaAdministrativa.toFixed(2)}</p>` : ''}
+            <p>Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}</p>
+            <p>Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal, true)}</p>
+            ${mcmvInfo}
+            ${custosAdicionaisInfo}
 
-
-            <h4>Simulação pelo Sistema SAC (Sistema de Amortização Constante)</h4>
-            <p>Primeira Parcela (sem taxas): R$ ${primeiraParcelaSAC_semTaxas.toFixed(2)}</p>
-            <p>Última Parcela (sem taxas): R$ ${ultimaParcelaSAC_semTaxas.toFixed(2)}</p>
-            <p><strong>Primeira Parcela (COM taxas): R$ ${primeiraParcelaSAC_comTaxas.toFixed(2)}</strong></p>
-             <p><strong>Última Parcela (COM taxas): R$ ${ultimaParcelaSAC_comTaxas.toFixed(2)}</strong></p>
-            <p>Total de Juros Pagos (estimado): R$ ${totalJurosSAC.toFixed(2)}</p>
-             <p>Total Pago ao Final (COM taxas, estimado): R$ ${totalPagoSAC.toFixed(2)}</p>
+            <h4>Simulação pelo Sistema SAC</h4>
+            <p>Primeira Parcela (sem taxas): ${formatCurrency(primeiraParcelaSAC_semTaxas)}</p>
+            <p>Última Parcela (sem taxas): ${formatCurrency(ultimaParcelaSAC_semTaxas)}</p>
+            <p><strong>Primeira Parcela (COM taxas): ${formatCurrency(primeiraParcelaSAC_comTaxas)}</strong></p>
+            <p><strong>Última Parcela (COM taxas): ${formatCurrency(ultimaParcelaSAC_comTaxas)}</strong></p>
+            <p>Total de Juros Pagos (estimado): ${formatCurrency(totalJurosSAC)}</p>
+            <p>Total Pago ao Final (COM taxas, estimado): ${formatCurrency(totalPagoSAC)}</p>
             <p><em>No sistema SAC, o valor da parcela diminui ao longo do tempo.</em></p>
 
-
-            <h4>Simulação pelo Sistema PRICE (Sistema Francês de Amortização)</h4>
-            <p>Valor da Parcela Fixa (sem taxas): R$ ${parcelaPRICE_semTaxas.toFixed(2)}</p>
-             <p><strong>Valor da Parcela Fixa (COM taxas): R$ ${parcelaPRICE_comTaxas.toFixed(2)}</strong></p>
-            <p>Total de Juros Pagos (estimado): R$ ${totalJurosPRICE.toFixed(2)}</p>
-             <p>Total Pago ao Final (COM taxas, estimado): R$ ${totalPagoPRICE.toFixed(2)}</p>
+            <h4>Simulação pelo Sistema PRICE</h4>
+            <p>Valor da Parcela Fixa (sem taxas): ${formatCurrency(parcelaPRICE_semTaxas)}</p>
+            <p><strong>Valor da Parcela Fixa (COM taxas): ${formatCurrency(parcelaPRICE_comTaxas)}</strong></p>
+            <p>Total de Juros Pagos (estimado): ${formatCurrency(totalJurosPRICE)}</p>
+            <p>Total Pago ao Final (COM taxas, estimado): ${formatCurrency(totalPagoPRICE)}</p>
             <p><em>No sistema PRICE, o valor da parcela é constante (sem considerar seguros e taxas).</em></p>
         `;
+        if (simulationMainResultsDiv) simulationMainResultsDiv.innerHTML = mainResultsHTML;
 
-        // Define o conteúdo principal da div de resultados
-        // Usamos querySelector para encontrar o primeiro h3 e substituir o conteúdo a partir dele
-        const firstH3 = resultsOutput.querySelector('h3');
-        if (firstH3) {
-            firstH3.parentElement.innerHTML = mainResultsHTML;
-        } else {
-             // Fallback caso a estrutura HTML mude (menos ideal)
-             resultsOutput.innerHTML = mainResultsHTML + resultsOutput.innerHTML;
-        }
-
-
-        // --- Formatação do Resumo para Compartilhamento (Texto Puro) ---
-        // Usamos \n para quebras de linha e *texto* ou **texto** para negrito no WhatsApp
         textSummaryForSharing = `*Resumo da Simulação Habitacional*\n\n` +
-                                `Valor do Imóvel: R$ ${valorImovel.toFixed(2)}\n` +
-                                `Valor da Entrada: R$ ${valorEntrada.toFixed(2)}\n` +
-                                `Valor Financiado: R$ ${valorFinanciado.toFixed(2)}\n` +
-                                `Prazo: ${prazoAnos} anos (${prazoMeses} meses)\n` +
-                                `Taxa de Juros Anual: ${taxaJurosAnual.toFixed(2)}%\n` +
-                                `Taxa de Juros Mensal: ${(taxaJurosMensal * 100).toFixed(4)}%\n`;
+            `Valor do Imóvel: ${formatCurrency(valorImovel)}\n` +
+            `Valor da Entrada: ${formatCurrency(valorEntrada)}\n` +
+            `Valor Financiado: ${formatCurrency(valorFinanciado)}\n` +
+            `Prazo: ${prazoAnos} anos (${prazoMeses} meses)\n` +
+            `Taxa de Juros Anual: ${formatPercentage(taxaJurosAnual)}\n` +
+            `Taxa de Juros Mensal: ${formatPercentage(taxaJurosMensal, true)}\n` +
+            (isMCMV ? `Simulação MCMV: ${getMCMVFaixaText(mcmvFaixaSelect.value)}, ${getMCMVRegiaoText(mcmvRegiaoSelect.value)}, ${getMCMVTipoParticipanteText(mcmvTipoParticipanteSelect.value)}\n` : '') +
+            (includeMIPCheckbox.checked ? `Seguro MIP Mensal (estimado): ${formatCurrency(seguroMIP)}\n` : '') +
+            (includeDFICheckbox.checked ? `Seguro DFI Mensal (estimado): ${formatCurrency(seguroDFI)}\n` : '') +
+            (includeTaxaAdminCheckbox.checked ? `Taxa Administrativa Mensal (estimado): ${formatCurrency(taxaAdministrativa)}\n` : '') +
+            `\n*Simulação SAC*\n` +
+            `Primeira Parcela (COM taxas): ${formatCurrency(primeiraParcelaSAC_comTaxas)}\n` +
+            `Última Parcela (COM taxas): ${formatCurrency(ultimaParcelaSAC_comTaxas)}\n` +
+            `Total Pago (estimado): ${formatCurrency(totalPagoSAC)}\n` +
+            `\n*Simulação PRICE*\n` +
+            `Parcela Fixa (COM taxas): ${formatCurrency(parcelaPRICE_comTaxas)}\n` +
+            `Total Pago (estimado): ${formatCurrency(totalPagoPRICE)}\n\n` +
+            `_Estes são cálculos estimados e podem variar._`;
 
-        if (includeMIPCheckbox.checked) {
-            textSummaryForSharing += `Seguro MIP Mensal (estimado): R$ ${seguroMIP.toFixed(2)}\n`;
-        }
-        if (includeDFICheckbox.checked) {
-            textSummaryForSharing += `Seguro DFI Mensal (estimado): R$ ${seguroDFI.toFixed(2)}\n`;
-        }
-        if (includeTaxaAdminCheckbox.checked) {
-            textSummaryForSharing += `Taxa Administrativa Mensal (estimado): R$ ${taxaAdministrativa.toFixed(2)}\n`;
-        }
+        const limiteParcela = rendaMensal * INCOME_COMMITMENT_RATIO;
+        let validationMessageHTML = '';
+        let validationMessageText = '';
+        const parcelaMaisAlta = Math.max(primeiraParcelaSAC_comTaxas, parcelaPRICE_comTaxas);
 
-        textSummaryForSharing += `\n*Simulação SAC*\n` +
-                                 `Primeira Parcela (sem taxas): R$ ${primeiraParcelaSAC_semTaxas.toFixed(2)}\n` +
-                                 `Última Parcela (sem taxas): R$ ${ultimaParcelaSAC_semTaxas.toFixed(2)}\n` +
-                                 `*Primeira Parcela (COM taxas): R$ ${primeiraParcelaSAC_comTaxas.toFixed(2)}*\n` +
-                                 `*Última Parcela (COM taxas): R$ ${ultimaParcelaSAC_comTaxas.toFixed(2)}*\n` +
-                                 `Total de Juros Pagos (estimado): R$ ${totalJurosSAC.toFixed(2)}\n` +
-                                 `Total Pago ao Final (COM taxas, estimado): R$ ${totalPagoSAC.toFixed(2)}\n` +
-                                 `_No sistema SAC, o valor da parcela diminui ao longo do tempo._\n\n`; // _texto_ para itálico no WhatsApp
-
-        textSummaryForSharing += `*Simulação PRICE*\n` +
-                                 `Valor da Parcela Fixa (sem taxas): R$ ${parcelaPRICE_semTaxas.toFixed(2)}\n` +
-                                 `*Valor da Parcela Fixa (COM taxas): R$ ${parcelaPRICE_comTaxas.toFixed(2)}*\n` +
-                                 `Total de Juros Pagos (estimado): R$ ${totalJurosPRICE.toFixed(2)}\n` +
-                                 `Total Pago ao Final (COM taxas, estimado): R$ ${totalPagoPRICE.toFixed(2)}\n` +
-                                 `_No sistema PRICE, o valor da parcela é constante (sem considerar seguros e taxas)._\n\n`; // _texto_ para itálico no WhatsApp
-
-        textSummaryForSharing += `_Estes são cálculos estimados e podem variar._`; // Mensagem final em itálico
-
-
-        // --- Validação da Parcela vs Renda (Adicional) ---
-        const limiteParcela = rendaMensal * 0.30; // 30% da renda mensal
-        let validationMessageHTML = ''; // Mensagem para exibir na página
-        let validationMessageText = ''; // Mensagem para incluir no texto de compartilhamento
-
-        // Verifica se a primeira parcela no SAC (com taxas) ou a parcela fixa no PRICE (com taxas)
-        // ultrapassam o limite de 30% da renda.
-        const primeiraParcelaParaValidacao = primeiraParcelaSAC_comTaxas; // Usa a primeira do SAC por ser a maior no SAC
-        const parcelaPRICEParaValidacao = parcelaPRICE_comTaxas; // Usa a parcela fixa do PRICE
-
-        if (primeiraParcelaParaValidacao > limiteParcela || parcelaPRICEParaValidacao > limiteParcela) {
+        if (parcelaMaisAlta > limiteParcela) {
             validationMessageHTML = `<p style="color: orange; font-weight: bold;">
-                Atenção: O valor estimado das parcelas (SAC: R$ ${primeiraParcelaParaValidacao.toFixed(2)}, PRICE: R$ ${parcelaPRICEParaValidacao.toFixed(2)})
-                pode ultrapassar o limite de 30% da sua renda mensal (R$ ${limiteParcela.toFixed(2)}).
-                Isso pode dificultar a aprovação do financiamento ou exigir ajustes no valor, prazo ou entrada.
+                Atenção: O valor estimado da maior parcela inicial (SAC: ${formatCurrency(primeiraParcelaSAC_comTaxas)}, PRICE: ${formatCurrency(parcelaPRICE_comTaxas)})
+                pode ultrapassar o limite de ${formatPercentage(INCOME_COMMITMENT_RATIO, true)} da sua renda mensal (${formatCurrency(limiteParcela)}).
+                Isso pode dificultar a aprovação do financiamento.
             </p>`;
-             validationMessageText = `\nAtenção: O valor estimado das parcelas (SAC: R$ ${primeiraParcelaParaValidacao.toFixed(2)}, PRICE: R$ ${parcelaPRICEParaValidacao.toFixed(2)}) pode ultrapassar o limite de 30% da sua renda mensal (R$ ${limiteParcela.toFixed(2)}). Isso pode dificultar a aprovação.`;
-
+            validationMessageText = `\nAtenção: O valor estimado da maior parcela inicial pode ultrapassar ${formatPercentage(INCOME_COMMITMENT_RATIO, true)} da sua renda mensal (${formatCurrency(limiteParcela)}).`;
         } else {
-             validationMessageHTML = `<p style="color: green; font-weight: bold;">
-                Com base na sua renda, o valor estimado das parcelas parece estar dentro do limite de 30% (R$ ${limiteParcela.toFixed(2)}).
+            validationMessageHTML = `<p style="color: green; font-weight: bold;">
+                Com base na sua renda, o valor estimado das parcelas (SAC: ${formatCurrency(primeiraParcelaSAC_comTaxas)}, PRICE: ${formatCurrency(parcelaPRICE_comTaxas)}) parece estar dentro do limite de ${formatPercentage(INCOME_COMMITMENT_RATIO, true)} (${formatCurrency(limiteParcela)}).
             </p>`;
-             validationMessageText = `\nCom base na sua renda, o valor estimado das parcelas parece estar dentro do limite de 30% (R$ ${limiteParcela.toFixed(2)}).`;
+            validationMessageText = `\nCom base na sua renda, o valor estimado das parcelas parece estar dentro do limite de ${formatPercentage(INCOME_COMMITMENT_RATIO, true)} (${formatCurrency(limiteParcela)}).`;
         }
 
-        // Adiciona a mensagem de validação à NOVA div de validação na página
-        if (validationTextDiv) {
-            validationTextDiv.innerHTML = validationMessageHTML;
-        }
-
-        // Adiciona a mensagem de validação ao resumo de texto para compartilhamento
+        if (validationTextDiv) validationTextDiv.innerHTML = validationMessageHTML;
         textSummaryForSharing += validationMessageText;
 
-
-        // Habilita os botões de compartilhamento após a simulação
-        copyResultsBtn.disabled = false;
-        whatsappShareBtn.disabled = false;
-
+        if (copyResultsBtn) copyResultsBtn.disabled = false;
+        if (whatsappShareBtn) whatsappShareBtn.disabled = false;
+        console.log('Simulação concluída.');
     }
 
-    // --- Função para copiar os resultados para a área de transferência ---
     function copyResults() {
-        // Usa o resumo de texto formatado para copiar
-        navigator.clipboard.writeText(textSummaryForSharing).then(function() {
-            // Feedback para o usuário (opcional)
-            // Mensagem ajustada para indicar que a formatação é para texto simples/mensagens
-            alert('Resultados copiados para a área de transferência! Cole em um aplicativo de mensagens ou editor de texto para ver a formatação.');
-        }).catch(function(err) {
-            // Em caso de erro (ex: permissão negada)
+        if (!textSummaryForSharing) {
+            alert('Não há resultados para copiar. Realize uma simulação primeiro.');
+            return;
+        }
+        navigator.clipboard.writeText(textSummaryForSharing).then(() => {
+            alert('Resultados copiados para a área de transferência!');
+        }).catch(err => {
             console.error('Erro ao copiar resultados: ', err);
-            alert('Erro ao copiar resultados. Por favor, copie manualmente.');
+            alert('Erro ao copiar resultados. Por favor, tente copiar manualmente.');
         });
     }
 
-    // --- Função para compartilhar via WhatsApp ---
     function shareViaWhatsApp() {
-        // Usa o resumo de texto formatado para compartilhar
-        const whatsappMessage = encodeURIComponent("Simulação Habitacional:\n\n" + textSummaryForSharing);
-
-        // Cria o link do WhatsApp
+        if (!textSummaryForSharing) {
+            alert('Não há resultados para compartilhar. Realize uma simulação primeiro.');
+            return;
+        }
+        const whatsappMessage = encodeURIComponent(textSummaryForSharing);
         const whatsappLink = `https://wa.me/?text=${whatsappMessage}`;
-
-        // Abre o link em uma nova aba/janela
         window.open(whatsappLink, '_blank');
     }
 
-    // --- Função para limpar um campo de input individual ---
     function handleClearInput(event) {
-        // Obtém o ID do input alvo a partir do atributo data-target do botão
         const targetInputId = event.target.dataset.target;
         const targetInput = document.getElementById(targetInputId);
-
-        // Limpa o valor do input alvo
         if (targetInput) {
             targetInput.value = '';
+            if (targetInput.id === 'valorImovel' || targetInput.id === 'valorEntrada') {
+                calculateAndSetMinEntrada();
+            }
+            if (targetInput.id === 'taxaJurosAnual' && includeMCMVCheckbox.checked) {
+                updateTaxaJurosMCMV();
+            }
         }
-         // Opcional: Limpar resultados ou re-simular após limpar um campo
-         // resultsOutput.innerHTML = '<p>Preencha os dados e clique em "Simular" para ver os resultados.</p>';
-         // textSummaryForSharing = ''; // Limpa o resumo de texto
-         // Desabilita botões de compartilhamento
-         // copyResultsBtn.disabled = true;
-         // whatsappShareBtn.disabled = true;
-         // if (validationTextDiv) validationTextDiv.innerHTML = ''; // Limpa a div de validação
     }
 
-    // --- Função para limpar todos os campos de input ---
+    // Esta função handleClearAll é da primeira versão melhorada, que apenas limpa os campos.
     function handleClearAll() {
-        // Limpa todos os campos de input numéricos
-        const allNumberInputs = document.querySelectorAll('input[type="number"]');
-        allNumberInputs.forEach(input => {
+        console.log('Limpando todos os dados...');
+        // Limpa todos os inputs de texto e número (esta query foi definida na inicialização)
+        const allInputs = document.querySelectorAll('input[type="text"], input[type="number"]');
+        allInputs.forEach(input => {
             input.value = '';
         });
 
-        // Reseta os checkboxes para o estado inicial (marcados)
-        includeMIPCheckbox.checked = true;
-        includeDFICheckbox.checked = true;
-        includeTaxaAdminCheckbox.checked = true;
+        if (includeMCMVCheckbox) includeMCMVCheckbox.checked = false;
+        if (mcmvOptionsGroup) mcmvOptionsGroup.classList.add('hidden');
+        if (mcmvFaixaSelect) mcmvFaixaSelect.value = 'faixa1';
+        if (mcmvRegiaoSelect) mcmvRegiaoSelect.value = 'outras';
+        if (mcmvTipoParticipanteSelect) mcmvTipoParticipanteSelect.value = 'nao-cotista';
 
-        // Limpa a área de resultados, mas mantém as divs de aviso e validação vazias
-         resultsOutput.innerHTML = `
-            <p>Preencha os dados e clique em "Simular" para ver os resultados.</p>
+        if (includeMIPCheckbox) includeMIPCheckbox.checked = true;
+        if (includeDFICheckbox) includeDFICheckbox.checked = true;
+        if (includeTaxaAdminCheckbox) includeTaxaAdminCheckbox.checked = true;
 
-            <div class="disclaimer-text">
-                <p>* Estes são cálculos estimados e podem não refletir o valor exato das parcelas e do total pago, que podem variar entre as instituições financeiras e incluir outros encargos não considerados aqui.</p>
-            </div>
-
-            <div class="validation-text">
-                </div>
-        `;
-
-        // Limpa o resumo de texto
+        if (simulationMainResultsDiv) simulationMainResultsDiv.innerHTML = `<p>Preencha os dados e clique em "Simular" para ver os resultados.</p>`;
+        if (validationTextDiv) validationTextDiv.innerHTML = '';
         textSummaryForSharing = '';
+        if (copyResultsBtn) copyResultsBtn.disabled = true;
+        if (whatsappShareBtn) whatsappShareBtn.disabled = true;
 
-        // Desabilita botões de compartilhamento
-        copyResultsBtn.disabled = true;
-        whatsappShareBtn.disabled = true;
+        calculateAndSetMinEntrada(); // Recalculará com valorImovelInput vazio, resultando em entrada "0,00" ou vazia.
     }
 
+    // --- Configuração de Event Listeners ---
+    if (simulateBtn) simulateBtn.addEventListener('click', handleSimulation);
+    if (copyResultsBtn) copyResultsBtn.addEventListener('click', copyResults);
+    if (whatsappShareBtn) whatsappShareBtn.addEventListener('click', shareViaWhatsApp);
+    if (clearAllBtn) clearAllBtn.addEventListener('click', handleClearAll);
 
-    // Desabilita os botões de compartilhamento inicialmente
-    copyResultsBtn.disabled = true;
-    whatsappShareBtn.disabled = true;
+    clearInputButtons.forEach(button => button.addEventListener('click', handleClearInput));
 
+    const inputsForFormatting = [ // Seleciona os inputs que precisam de formatação monetária/taxa
+        valorImovelInput, valorEntradaInput, rendaMensalInput,
+        taxaJurosAnualInput, seguroMIPInput, seguroDFIInput, taxaAdministrativaInput
+    ];
+    inputsForFormatting.forEach(input => {
+        if (input) {
+            input.addEventListener('blur', handleBlurFormatting);
+            input.addEventListener('focus', handleFocusUnformatting);
+        }
+    });
+    
+    if (valorImovelInput) {
+        valorImovelInput.addEventListener('input', () => {
+            // O calculateAndSetMinEntrada no 'blur' é o mais preciso.
+            // Chamá-lo aqui no 'input' pode ser feito para feedback instantâneo,
+            // mas a lógica atual já é robusta com o 'blur'.
+            // Para evitar formatação enquanto digita, podemos deixar a atualização principal para o blur.
+            // Se desejar uma prévia dinâmica, poderia chamar uma versão simplificada aqui
+            // ou o próprio calculateAndSetMinEntrada.
+        });
+    }
+
+    if (includeMCMVCheckbox && mcmvOptionsGroup && mcmvFaixaSelect && mcmvRegiaoSelect && mcmvTipoParticipanteSelect) {
+        includeMCMVCheckbox.addEventListener('change', function() {
+            if (mcmvOptionsGroup) mcmvOptionsGroup.classList.toggle('hidden', !this.checked);
+            if (this.checked) {
+                updateTaxaJurosMCMV();
+            } else {
+                // Opcional: Resetar taxa para um valor padrão não-MCMV.
+                // Na primeira versão melhorada, não havia reset explícito aqui.
+                // Se desejar, descomente:
+                // taxaJurosAnualInput.value = formatNumberString(8.00); 
+            }
+            calculateAndSetMinEntrada();
+        });
+
+        [mcmvFaixaSelect, mcmvRegiaoSelect, mcmvTipoParticipanteSelect].forEach(select => {
+            if (select) { // Verifica se o select existe
+                select.addEventListener('change', () => {
+                    if (includeMCMVCheckbox.checked) {
+                        updateTaxaJurosMCMV();
+                    }
+                    calculateAndSetMinEntrada();
+                });
+            }
+        });
+    }
+
+    // --- Inicialização ---
+    function initializeForm() {
+        // Aplica formatação inicial aos campos que têm valor padrão no HTML
+        inputsForFormatting.forEach(input => {
+            if (input && input.value) { // Verifica se o input existe e tem valor
+                const value = unformatNumberString(input.value);
+                const number = parseFloat(value);
+                if (!isNaN(number)) {
+                    input.value = formatNumberString(number);
+                }
+            }
+        });
+
+        calculateAndSetMinEntrada();
+        if (copyResultsBtn) copyResultsBtn.disabled = true;
+        if (whatsappShareBtn) whatsappShareBtn.disabled = true;
+    }
+
+    initializeForm(); // Garante que os valores iniciais sejam formatados corretamente.
+    console.log('Simulador Habitacional inicializado e pronto.');
 });
